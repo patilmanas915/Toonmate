@@ -1,20 +1,20 @@
 package com.example.toonmate.screen.searchscreen
 
+import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
@@ -36,29 +36,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavOptions
 import coil.compose.AsyncImage
-import com.example.toonmate.ui.theme.ToonmateTheme
+import com.example.toonmate.navigation.AppScreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: SeacrchViewModel= hiltViewModel<SeacrchViewModel>()
+    viewModel: SeacrchViewModel = hiltViewModel<SeacrchViewModel>()
 ) {
     var searchData by remember { mutableStateOf("") }
+    val loading = remember { mutableStateOf(false) }
     val list by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
+
     Scaffold(
         topBar = {
             TopAppBar(colors = TopAppBarDefaults.topAppBarColors(
@@ -77,7 +82,7 @@ fun SearchScreen(
                         onValueChange = { searchData = it },
                         modifier
                             .padding(6.dp)
-                            .focusRequester(focusRequester),
+                            .focusRequester(focusRequester), singleLine = true,
                         placeholder = {
 
                             Column(
@@ -110,7 +115,12 @@ fun SearchScreen(
                         ),
                         keyboardActions = KeyboardActions(
                             onSearch = {
-//                                viewModel.SearchManga(searchData)
+                                scope.launch {
+                                    loading.value = true
+                                    viewModel.SearchManga(searchData)
+                                    delay(9000)
+                                    loading.value = false
+                                }
 
                             }
                         )
@@ -119,7 +129,17 @@ fun SearchScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.SearchManga(searchData)}) {
+                        onClick = {
+                            scope.launch {
+                                loading.value = true
+                                viewModel.SearchManga(searchData)
+                                delay(9000)
+                                loading.value = false
+                            }
+
+
+                        }
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null
@@ -140,19 +160,38 @@ fun SearchScreen(
 
 
         },
-    ) { it ->
-        LazyColumn(contentPadding = it, content = {
-            itemsIndexed(list){
-            index, item->
-                SearchCard(item.title,item.img)
-            }
-        })
+    ) {
+        Box(modifier = modifier.fillMaxSize()) {
 
-    }
-    if (viewModel.loading){
-        Box(Modifier.fillMaxSize()) {
-            CircularProgressIndicator()
+
+            LazyColumn(contentPadding = it, content = {
+                itemsIndexed(list) { index, item ->
+                    item.title?.let { it1 ->
+                        item.img?.let { it2 ->
+                            item.id?.let { it3 ->
+                                SearchCard(
+                                    it1, it2, navController,
+                                    it3
+                                )
+                            }
+                        }
+                    }
+                }
+            })
+            if (loading.value) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.Gray.copy(0.8f))
+                ) {
+                    CircularProgressIndicator(modifier.align(Alignment.Center))
+
+                }
+            }
+
         }
+
+
     }
 
 
@@ -160,8 +199,24 @@ fun SearchScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SearchCard(name:String,url:String,modifier: Modifier = Modifier) {
-    Card(onClick = { /*TODO*/ }, modifier = Modifier.padding(8.dp)) {
+fun SearchCard(
+    name: String,
+    url: String,
+    navController: NavController,
+    id: String,
+    modifier: Modifier = Modifier
+) {
+    val encodedUrl = Uri.encode(url)
+    Card(
+        onClick = {
+            navController.navigate(
+                "comic/$id/$name/$encodedUrl",
+                navOptions = NavOptions.Builder().setLaunchSingleTop(true).build()
+            )
+        }, modifier = Modifier
+            .padding(8.dp)
+            .fillMaxWidth()
+    ) {
         Row(
             modifier.fillMaxSize(),
             horizontalArrangement = Arrangement.Center,
@@ -172,10 +227,11 @@ fun SearchCard(name:String,url:String,modifier: Modifier = Modifier) {
                 contentDescription = null,
                 modifier
                     .weight(3f)
-                    .size(60.dp)
+                    .fillMaxSize()
             )
+            Spacer(modifier = Modifier.padding(12.dp))
             Column(modifier.weight(6.5f)) {
-                Text(text =name)
+                Text(text = name)
             }
         }
     }

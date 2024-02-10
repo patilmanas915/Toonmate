@@ -1,7 +1,7 @@
 package com.example.toonmate.screen.searchscreen.data
 
 data class SearchData(
-    val searchData: List<Data> = emptyList(),
+    val `data`:List<Data>,
     val limit: Int = 0,
     val offset: Int = 0,
     val response: String = "",
